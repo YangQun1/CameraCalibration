@@ -60,10 +60,11 @@ int main()
 			+ CALIB_CB_FAST_CHECK);
 
 		// 精细化到亚像素
+		// 注意：亚像素精细化过程非常重要，影响着标定的精度
 		cornerSubPix(img_grey, corners, Size(11, 11), Size(-1, -1),\
 			TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
 		all_corners.push_back(corners);
-
+		 
 		// 绘制角点并显示
 		drawChessboardCorners(img, board_size, corners, true);
 		imshow("corners", img);
@@ -92,10 +93,11 @@ int main()
 	Mat intrinsic_matrix = Mat::zeros(Size(3, 3), CV_32FC1);
 	Mat dist_coeffs = Mat::zeros(Size(1, 5), CV_32FC1);
 	vector<Mat> rvecs, tvecs;
-	// 注意：此处的迭代终止条件参数非常重要，影响着标定的精度
+	//double rms = calibrateCamera(all_object_points, all_corners, img_size, \
+	//	intrinsic_matrix, dist_coeffs, rvecs, tvecs, 0, \
+	//	TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 100, 0.0001));
 	double rms = calibrateCamera(all_object_points, all_corners, img_size, \
-		intrinsic_matrix, dist_coeffs, rvecs, tvecs, 0, \
-		TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 100, 0.0001));
+		intrinsic_matrix, dist_coeffs, rvecs, tvecs);
 	cout << "Re-projection error reported by calibrateCamera: " << rms << endl;
 	bool ok = checkRange(intrinsic_matrix) && checkRange(dist_coeffs);
 	if (ok){
