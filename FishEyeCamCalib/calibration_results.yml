@@ -1,0 +1,16 @@
+%YAML:1.0
+Calibration_Time: "08/13/18 13:56:21"
+Camera_Matrix: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: f
+   data: [ 2.27912766e+002, 0., 4.72852570e+002, 0., 2.26740097e+002,
+       3.05171356e+002, 0., 0., 1. ]
+# fishEye camera distortion module:k1, k2, p1, p2[, k3[, k4, k5, k6]]
+Distortion_Coefficients: !!opencv-matrix
+   rows: 4
+   cols: 1
+   dt: f
+   data: [ 7.04003051e-002, -1.52949035e-001, 1.37873918e-001,
+       -4.24915999e-002 ]
+Avg_Reprojection_Error: 9.5106793646477916e-001

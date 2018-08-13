@@ -17,14 +17,14 @@ void getFiles(string path, vector<string>& files);
 
 #define CALIBRATE	
 
-int main() 
+int main()
 {
 	// 获取输入参数
 	string img_path;
 	string input_type;
 	string camera_type;
-	int radial_dist_num;
-	int zero_tangential_dist;
+	int dist_coff_num;
+	int fix_skew;
 	string output_filename;
 	int iter_subpixel;
 	double eps_subpixel;
@@ -37,7 +37,7 @@ int main()
 	// string calib_input_filename = "./calibration_results.yml";
 
 	FileStorage fs_input(calib_input_filename, FileStorage::READ);
-	
+
 	fs_input["Input_Type"] >> input_type;
 	if (input_type == "ImageFolder"){
 		fs_input["Input1"] >> img_path;
@@ -49,8 +49,8 @@ int main()
 	fs_input["ChessSize_Width"] >> chess_size.width;
 	fs_input["ChessSize_Height"] >> chess_size.height;
 
-	fs_input["Radial_Dist_Num"] >> radial_dist_num;
-	fs_input["Zero_Tangential_Dist"] >> zero_tangential_dist;
+	fs_input["Radial_Dist_Num"] >> dist_coff_num;
+	fs_input["FIX_SKEW"] >> fix_skew;
 
 	fs_input["Output_File_Name"] >> output_filename;
 
@@ -76,6 +76,7 @@ int main()
 	vector<vector<Point2f>> all_corners;
 	namedWindow("corners", 0);
 	cvResizeWindow("corners", 1072, 712);
+	int valid_img_count = 0;
 	for (int i = 0; i < img_count; i++){
 
 		Mat img = imread(img_path + img_files[i]);
@@ -96,27 +97,30 @@ int main()
 		}
 
 		// 提取角点
-		findChessboardCorners(img_grey, board_size, corners, CALIB_CB_ADAPTIVE_THRESH \
+		bool found = findChessboardCorners(img_grey, board_size, corners, CALIB_CB_ADAPTIVE_THRESH \
 			+ CALIB_CB_NORMALIZE_IMAGE \
 			+ CALIB_CB_FAST_CHECK);
 
+		if (!found) continue;
+
+		valid_img_count++;
 		// 精细化到亚像素
 		// 注意：亚像素精细化过程非常重要，影响着标定的精度
-		cornerSubPix(img_grey, corners, Size(11, 11), Size(-1, -1),\
+		cornerSubPix(img_grey, corners, Size(11, 11), Size(-1, -1), \
 			TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, iter_subpixel, eps_subpixel));
 		all_corners.push_back(corners);
-		 
+
 		// 绘制角点并显示
 		drawChessboardCorners(img, board_size, corners, true);
 		imshow("corners", img);
-		waitKey(200);
+		waitKey(0);
 	}
 	cv::destroyWindow("corners");
 
 	// 构造三维的目标点，在每个视角下，使一个角点对应一个目标点
 	vector<vector<Point3f>> all_object_points;
 	// Size chess_size = { 25, 25 };
-	for (int i = 0; i < img_count; i++){
+	for (int i = 0; i < valid_img_count; i++){
 		vector<Point3f> object_points;
 		for (int h = 0; h < board_size.height; h++){
 			for (int w = 0; w < board_size.width; w++){
@@ -132,7 +136,7 @@ int main()
 
 	// 开始标定
 	Mat intrinsic_matrix = Mat::zeros(Size(3, 3), CV_32FC1);
-	Mat dist_coeffs = Mat::zeros(Size(1, 8), CV_32FC1);
+	Mat dist_coeffs = Mat::zeros(Size(1, 4), CV_32FC1);
 	vector<Mat> rvecs, tvecs;
 
 	//<--	此处，使用不同阶数的畸变项效果相差很大
@@ -141,21 +145,19 @@ int main()
 	//		重投影误差很大的现象，类似于过拟合问题。
 	//-->
 	int flag = 0;
-	if (radial_dist_num == 2){
-		flag = flag | CV_CALIB_FIX_K3 | CV_CALIB_FIX_K4 | CV_CALIB_FIX_K5 | CV_CALIB_FIX_K6;
+	// CALIB_RECOMPUTE_EXTRINSIC 参数很重要，严重影响标定精度！！！
+	flag = flag | fisheye::CALIB_RECOMPUTE_EXTRINSIC | fisheye::CALIB_CHECK_COND;
+	if (dist_coff_num == 2){
+		flag = flag | fisheye::CALIB_FIX_K3 | fisheye::CALIB_FIX_K4;
 	}
-	else if (radial_dist_num == 3){
-		flag = flag | CV_CALIB_FIX_K4 | CV_CALIB_FIX_K5 | CV_CALIB_FIX_K6;
+	else if (dist_coff_num == 3){
+		flag = flag | fisheye::CALIB_FIX_K4;
 	}
-	else if (radial_dist_num == 4){
-		flag = flag | CV_CALIB_RATIONAL_MODEL;
-		flag = flag | CV_CALIB_FIX_K5 | CV_CALIB_FIX_K6;
-	}
-	if (zero_tangential_dist){
-		flag = flag | CV_CALIB_ZERO_TANGENT_DIST;
+	if (fix_skew == 1){
+		flag = flag | fisheye::CALIB_FIX_SKEW;
 	}
 
-	double rms = calibrateCamera(all_object_points, all_corners, img_size, \
+	double rms = fisheye::calibrate(all_object_points, all_corners, img_size, \
 		intrinsic_matrix, dist_coeffs, rvecs, tvecs, flag,  \
 		TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, iter_calib, eps_calib));
 
@@ -172,10 +174,10 @@ int main()
 	// 评价标定结果  
 	vector<Point2f> reproj_points;
 	double reproj_error, total_error = 0;
-	for (int i = 0; i < img_count; i++){
+	for (int i = 0; i < valid_img_count; i++){
 		// 计算重投影点
-		projectPoints(all_object_points[i], rvecs[i], tvecs[i], \
-			intrinsic_matrix, dist_coeffs, reproj_points);
+		fisheye::projectPoints(all_object_points[i], reproj_points, rvecs[i], tvecs[i], \
+			intrinsic_matrix, dist_coeffs);
 
 		// 计算重投影误差
 		reproj_error = 0;
@@ -188,7 +190,7 @@ int main()
 
 		total_error += reproj_error;
 	}
-	total_error = total_error / img_count;
+	total_error = total_error / valid_img_count;
 	cout << "average re-projection error: " << total_error << endl;
 
 	// 保存标定结果
@@ -204,8 +206,7 @@ int main()
 	fs_out << "Calibration_Time" << buf;
 
 	fs_out << "Camera_Matrix" << intrinsic_matrix;
-
-	cvWriteComment(*fs_out, "perspective camera distortion module:k1, k2, p1, p2[, k3[, k4, k5, k6]]", 0);
+	cvWriteComment(*fs_out, "fishEye camera distortion module:k1, k2, p1, p2[, k3[, k4, k5, k6]]", 0);
 	fs_out << "Distortion_Coefficients" << dist_coeffs;
 
 	fs_out << "Avg_Reprojection_Error" << total_error;
@@ -228,10 +229,23 @@ int main()
 	// 去畸变实验
 	namedWindow("undistort", 0);
 	cvResizeWindow("undistort", 1072, 712);
-	for (int i = 0; i < img_count; i++){
+	// 调节视场大小,乘的系数越小视场越大
+	Mat nk = intrinsic_matrix.clone();
+	nk.at<float>(0, 0) *= 0.3;
+	nk.at<float>(1, 1) *= 0.3;
+	// 调节校正图中心，建议置于校正图中心
+	nk.at<float>(0, 2) = 0.5 * img_size.width;
+	nk.at<float>(1, 2) = 0.5 * img_size.height;
+	Mat map1, map2;
+	for (int i = 0; i < valid_img_count; i++){
 		Mat img = imread(img_path + img_files[i]);
 		Mat img_undist;
-		undistort(img, img_undist, intrinsic_matrix, dist_coeffs);
+		// 注：想要得到校正之后的完整图像，需要调整该函数的P参数
+		fisheye::initUndistortRectifyMap(intrinsic_matrix, dist_coeffs, Mat::eye(3, 3, CV_32F),
+			nk,
+			img_size, CV_32FC1, map1, map2);
+		cv::remap(img, img_undist, map1, map2, INTER_LINEAR, BORDER_CONSTANT);
+		// fisheye::undistortImage(img, img_undist, intrinsic_matrix, dist_coeffs);
 		imshow("undistort", img_undist);
 		waitKey(0);
 	}
