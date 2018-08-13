@@ -17,12 +17,53 @@ void getFiles(string path, vector<string>& files);
 
 #define CALIBRATE	
 
-int main()
+int main() 
 {
-	// 获取标定图像的文件名
-	// string img_path = "E:/VSProject/CameraCalibration/DataSet/slr/";
-	string img_path = "E:/VSProject/CameraCalibration/DataSet/fishEye/";
+	// 获取输入参数
+	string img_path;
+	string input_type;
+	string camera_type;
+	int radial_dist_num;
+	int zero_tangential_dist;
+	string output_filename;
+	int iter_subpixel;
+	double eps_subpixel;
+	int iter_calib;
+	double eps_calib;
+	Size board_size;
+	Size chess_size;
 
+	string calib_input_filename = "./calibration_input.yml";
+	// string calib_input_filename = "./calibration_results.yml";
+
+	FileStorage fs_input(calib_input_filename, FileStorage::READ);
+	
+	fs_input["Input_Type"] >> input_type;
+	if (input_type == "ImageFolder"){
+		fs_input["Input1"] >> img_path;
+	}
+
+	fs_input["BoardSize_Width"] >> board_size.width;
+	fs_input["BoardSize_Height"] >> board_size.height;
+
+	fs_input["ChessSize_Width"] >> chess_size.width;
+	fs_input["ChessSize_Height"] >> chess_size.height;
+
+	fs_input["Radial_Dist_Num"] >> radial_dist_num;
+	fs_input["Zero_Tangential_Dist"] >> zero_tangential_dist;
+
+	fs_input["Output_File_Name"] >> output_filename;
+
+	fs_input["Iter_Subpixel"] >> iter_subpixel;
+	fs_input["EPS_Subpixel"] >> eps_subpixel;
+
+	fs_input["Iter_Calibration"] >> iter_calib;
+	fs_input["EPS_Calibration"] >> eps_calib;
+
+	fs_input.release();
+
+	// 读取输入数据
+	// string img_path = "E:/VSProject/CameraCalibration/DataSet/slr/";
 	vector<string> img_files;
 	getFiles(img_path, img_files);
 	int img_count = img_files.size();
@@ -30,7 +71,7 @@ int main()
 #ifdef CALIBRATE	// 重新标定
 	// 提取棋盘角点
 	Size img_size;
-	Size board_size = { 6, 9 };	// 标定板上每列、每行内角点的数量
+	// Size board_size = { 6, 9 };	// 标定板上每列、每行内角点的数量
 	vector<Point2f> corners;
 	vector<vector<Point2f>> all_corners;
 	namedWindow("corners", 0);
@@ -62,7 +103,7 @@ int main()
 		// 精细化到亚像素
 		// 注意：亚像素精细化过程非常重要，影响着标定的精度
 		cornerSubPix(img_grey, corners, Size(11, 11), Size(-1, -1),\
-			TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 30, 0.1));
+			TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, iter_subpixel, eps_subpixel));
 		all_corners.push_back(corners);
 		 
 		// 绘制角点并显示
@@ -74,7 +115,7 @@ int main()
 
 	// 构造三维的目标点，在每个视角下，使一个角点对应一个目标点
 	vector<vector<Point3f>> all_object_points;
-	Size chess_size = { 25, 25 };
+	// Size chess_size = { 25, 25 };
 	for (int i = 0; i < img_count; i++){
 		vector<Point3f> object_points;
 		for (int h = 0; h < board_size.height; h++){
@@ -91,13 +132,30 @@ int main()
 
 	// 开始标定
 	Mat intrinsic_matrix = Mat::zeros(Size(3, 3), CV_32FC1);
-	Mat dist_coeffs = Mat::zeros(Size(1, 5), CV_32FC1);
+	Mat dist_coeffs = Mat::zeros(Size(1, 8), CV_32FC1);
 	vector<Mat> rvecs, tvecs;
-	//double rms = calibrateCamera(all_object_points, all_corners, img_size, \
-	//	intrinsic_matrix, dist_coeffs, rvecs, tvecs, 0, \
-	//	TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, 100, 0.0001));
+	// 使用不同阶数的畸变项效果相差很大
+	// 因为在标定过程中，使用非线性优化对畸变系数进行求解的过程中，仅仅考虑了最小化棋盘角点的重投影误差，
+	// 如果选取的畸变阶数不合适，可能会造成棋盘角点重投影误差很小，但图像边缘（没有棋盘角点的位置等）重投影误差很大，类似于过拟合问题。
+	int flag = 0;
+	if (radial_dist_num == 2){
+		flag = flag | CV_CALIB_FIX_K3 | CV_CALIB_FIX_K4 | CV_CALIB_FIX_K5 | CV_CALIB_FIX_K6;
+	}
+	else if (radial_dist_num == 3){
+		flag = flag | CV_CALIB_FIX_K4 | CV_CALIB_FIX_K5 | CV_CALIB_FIX_K6;
+	}
+	else if (radial_dist_num == 4){
+		flag = flag | CV_CALIB_RATIONAL_MODEL;
+		flag = flag | CV_CALIB_FIX_K5 | CV_CALIB_FIX_K6;
+	}
+	if (zero_tangential_dist){
+		flag = flag | CV_CALIB_ZERO_TANGENT_DIST;
+	}
+
 	double rms = calibrateCamera(all_object_points, all_corners, img_size, \
-		intrinsic_matrix, dist_coeffs, rvecs, tvecs);
+		intrinsic_matrix, dist_coeffs, rvecs, tvecs, flag,  \
+		TermCriteria(CV_TERMCRIT_EPS + CV_TERMCRIT_ITER, iter_calib, eps_calib));
+
 	cout << "Re-projection error reported by calibrateCamera: " << rms << endl;
 	bool ok = checkRange(intrinsic_matrix) && checkRange(dist_coeffs);
 	if (ok){
@@ -108,7 +166,7 @@ int main()
 		cout << "Bad estimated Intrinsic-Matrix or Dist-Coffes" << endl;
 	} 
 
-	// 评价标定结果
+	// 评价标定结果  
 	vector<Point2f> reproj_points;
 	double reproj_error, total_error = 0;
 	for (int i = 0; i < img_count; i++){
@@ -132,7 +190,7 @@ int main()
 
 	// 保存标定结果
 	string out_file_name = "./calibration_results.yml";
-	FileStorage fs(out_file_name, FileStorage::WRITE);
+	FileStorage fs_out(out_file_name, FileStorage::WRITE);
 
 	time_t tm;
 	struct tm t2;
@@ -140,14 +198,16 @@ int main()
 	localtime_s(&t2, &tm);
 	char buf[1024];
 	strftime(buf, sizeof(buf) - 1, "%c", &t2);
-	fs << "Calibration_Time" << buf;
+	fs_out << "Calibration_Time" << buf;
 
-	fs << "Camera_Matrix" << intrinsic_matrix;
+	fs_out << "Camera_Matrix" << intrinsic_matrix;
 
-	cvWriteComment(*fs, "(k1, k2, p1, p2[, k3[, k4, k5, k6]])", 0);
-	fs << "Distortion_Coefficients" << dist_coeffs;
+	cvWriteComment(*fs_out, "(k1, k2, p1, p2[, k3[, k4, k5, k6]])", 0);
+	fs_out << "Distortion_Coefficients" << dist_coeffs;
 
-	fs << "Avg_Reprojection_Error" << total_error;
+	fs_out << "Avg_Reprojection_Error" << total_error;
+
+	fs_out.release();
 
 #else	// 从文件中读取已经标定得到的参数
 	string calib_results_file = "./calibration_results_matlab.yml";
@@ -159,6 +219,7 @@ int main()
 	fs["Camera_Matrix"] >> intrinsic_matrix;
 	fs["Distortion_Coefficients"] >> dist_coeffs;
 
+	fs.release();
 #endif 
 
 	// 去畸变实验
@@ -171,20 +232,6 @@ int main()
 		imshow("undistort", img_undist);
 		waitKey(0);
 	}
-	//Mat view, rview, map1, map2;
-	//initUndistortRectifyMap(intrinsic_matrix, dist_coeffs, Mat(),
-	//	getOptimalNewCameraMatrix(intrinsic_matrix, dist_coeffs, img_size, 1, img_size, 0),
-	//	img_size, CV_16SC2, map1, map2);
-
-	//for (int i = 0; i < img_count; i++)
-	//{
-	//	view = imread(img_path + img_files[i]);
-	//	if (view.empty())
-	//		continue;
-	//	remap(view, rview, map1, map2, INTER_LINEAR);
-	//	imshow("undistort", rview);
-	//	waitKey(0);
-	//}
 	cv::destroyWindow("undistort");
  	return 0;
 }
