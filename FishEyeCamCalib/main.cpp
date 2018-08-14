@@ -237,13 +237,12 @@ int main()
 	nk.at<float>(0, 2) = 0.5 * img_size.width;
 	nk.at<float>(1, 2) = 0.5 * img_size.height;
 	Mat map1, map2;
+	// 注：想要得到校正之后的完整图像，需要调整该函数的P参数
+	fisheye::initUndistortRectifyMap(intrinsic_matrix, dist_coeffs, Mat::eye(3, 3, CV_32F), nk,
+		img_size, CV_32FC1, map1, map2);
 	for (int i = 0; i < valid_img_count; i++){
 		Mat img = imread(img_path + img_files[i]);
 		Mat img_undist;
-		// 注：想要得到校正之后的完整图像，需要调整该函数的P参数
-		fisheye::initUndistortRectifyMap(intrinsic_matrix, dist_coeffs, Mat::eye(3, 3, CV_32F),
-			nk,
-			img_size, CV_32FC1, map1, map2);
 		cv::remap(img, img_undist, map1, map2, INTER_LINEAR, BORDER_CONSTANT);
 		// fisheye::undistortImage(img, img_undist, intrinsic_matrix, dist_coeffs);
 		imshow("undistort", img_undist);

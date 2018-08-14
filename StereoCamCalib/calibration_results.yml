@@ -1,0 +1,45 @@
+%YAML:1.0
+Calibration_Time: "08/14/18 15:03:30"
+Image_Size: [ 1280, 960 ]
+Camera_Matrix_Left: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [ 1.0341798558475298e+003, 0., 6.5371263996858886e+002, 0.,
+       1.0338972102607984e+003, 4.8124278981931855e+002, 0., 0., 1. ]
+# perspective camera distortion module:k1, k2, p1, p2[, k3[, k4, k5, k6]]
+Distortion_Coefficients_Left: !!opencv-matrix
+   rows: 5
+   cols: 1
+   dt: d
+   data: [ -3.6233237288176773e-001, 1.8961019894057191e-001,
+       5.9703083944083078e-004, 1.3110457056743211e-004, 0. ]
+Camera_Matrix_Right: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [ 1.0385605549991840e+003, 0., 6.4213774898479301e+002, 0.,
+       1.0380139987258842e+003, 4.7667223097817606e+002, 0., 0., 1. ]
+# perspective camera distortion module:k1, k2, p1, p2[, k3[, k4, k5, k6]]
+Distortion_Coefficients_Right: !!opencv-matrix
+   rows: 5
+   cols: 1
+   dt: d
+   data: [ -3.6269344805481812e-001, 1.8134617318649643e-001,
+       -1.7029172676245570e-004, -3.9882285456434562e-004, 0. ]
+Rotation_Matrix: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [ 9.9999905071582662e-001, 3.3274707968850904e-004,
+       1.3371038951848861e-003, -3.3528144438256513e-004,
+       9.9999814707255452e-001, 1.8956365186370639e-003,
+       -1.3364706501126642e-003, -1.8960830252645784e-003,
+       9.9999730935406161e-001 ]
+Translation_Vector: !!opencv-matrix
+   rows: 3
+   cols: 1
+   dt: d
+   data: [ -2.7794508388272138e+001, -8.9345300393275345e-002,
+       -9.5906180416741649e-002 ]
+Avg_Reprojection_Error: 5.6843453668493381e-002

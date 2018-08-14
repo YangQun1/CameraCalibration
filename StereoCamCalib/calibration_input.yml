@@ -1,7 +1,7 @@
 %YAML:1.0
 # Number of inner corners per a item row and column
 BoardSize_Width: 6
-BoardSize_Height: 9
+BoardSize_Height: 7
 # Size of chess square(in millimeter)
 ChessSize_Width: 25
 ChessSize_Height: 25
@@ -15,13 +15,13 @@ Input_Type: "ImageFolder"
 # Only can be one of the follows:
 #   "Mono" 
 #   "Stereo"
-Camera_Type: "Mono"
+Camera_Type: "Stereo"
 # The input data,Input1 for Mono Camera and Input1 Input2 for Stero Camera
 # If the Input_Type is "ImageFolder"  --> give the path of the folder
 # If the Input_Type is "Cameraor"     --> give the ID of the camera, like "1"
 # If the Input_Type is "Video"        --> give the path of the input video, like "/tmp/x.avi"
-Input1: "E:/VSProject/CameraCalibration/DataSet/slr/"
-Input2: "E:/VSProject/CameraCalibration/DataSet/slr/"
+Input1: "E:/VSProject/CameraCalibration/DataSet/stereo/left/"
+Input2: "E:/VSProject/CameraCalibration/DataSet/stereo/right/"
 # Number of Radial Distortion Cofficients
 # Can be 2,3,4
 # When the distortion is more serious, this number should be more larger
