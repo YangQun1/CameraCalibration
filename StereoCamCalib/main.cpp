@@ -127,6 +127,12 @@ int main()
 
 	Mat map1_left, map2_left;
 	Mat map1_right, map2_right;
+	//Mat newCamMatrix_left = P1(Rect(0, 0, 3, 3));
+	//Mat newCamMatrix_right = P2(Rect(0, 0, 3, 3));
+	//initUndistortRectifyMap(intrinsic_matrix_left, dist_coeffs_left,
+	//	R1, newCamMatrix_left, img_size, CV_32FC1, map1_left, map2_left);
+	//initUndistortRectifyMap(intrinsic_matrix_right, dist_coeffs_right,
+	//	R2, newCamMatrix_right, img_size, CV_32FC1, map1_right, map2_right);
 	initUndistortRectifyMap(intrinsic_matrix_left, dist_coeffs_left,
 		R1, P1, img_size, CV_32FC1, map1_left, map2_left);
 	initUndistortRectifyMap(intrinsic_matrix_right, dist_coeffs_right,
