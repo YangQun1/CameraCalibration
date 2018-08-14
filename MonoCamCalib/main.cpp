@@ -71,7 +71,7 @@ int main()
 #ifdef CALIBRATE	// 重新标定
 	// 提取棋盘角点
 	Size img_size;
-	// Size board_size = { 6, 9 };	// 标定板上每列、每行内角点的数量
+	int valid_img_count = 0;
 	vector<Point2f> corners;
 	vector<vector<Point2f>> all_corners;
 	namedWindow("corners", 0);
@@ -96,9 +96,13 @@ int main()
 		}
 
 		// 提取角点
-		findChessboardCorners(img_grey, board_size, corners, CALIB_CB_ADAPTIVE_THRESH \
+		bool found = findChessboardCorners(img_grey, board_size, corners, CALIB_CB_ADAPTIVE_THRESH \
 			+ CALIB_CB_NORMALIZE_IMAGE \
 			+ CALIB_CB_FAST_CHECK);
+
+		if (!found) continue;
+
+		valid_img_count++;
 
 		// 精细化到亚像素
 		// 注意：亚像素精细化过程非常重要，影响着标定的精度
@@ -109,14 +113,14 @@ int main()
 		// 绘制角点并显示
 		drawChessboardCorners(img, board_size, corners, true);
 		imshow("corners", img);
-		waitKey(200);
+		waitKey(0);
 	}
 	cv::destroyWindow("corners");
 
 	// 构造三维的目标点，在每个视角下，使一个角点对应一个目标点
 	vector<vector<Point3f>> all_object_points;
 	// Size chess_size = { 25, 25 };
-	for (int i = 0; i < img_count; i++){
+	for (int i = 0; i < valid_img_count; i++){
 		vector<Point3f> object_points;
 		for (int h = 0; h < board_size.height; h++){
 			for (int w = 0; w < board_size.width; w++){
@@ -172,7 +176,7 @@ int main()
 	// 评价标定结果  
 	vector<Point2f> reproj_points;
 	double reproj_error, total_error = 0;
-	for (int i = 0; i < img_count; i++){
+	for (int i = 0; i < valid_img_count; i++){
 		// 计算重投影点
 		projectPoints(all_object_points[i], rvecs[i], tvecs[i], \
 			intrinsic_matrix, dist_coeffs, reproj_points);
