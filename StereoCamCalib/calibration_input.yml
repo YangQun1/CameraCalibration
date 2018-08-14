@@ -1,0 +1,41 @@
+%YAML:1.0
+# Number of inner corners per a item row and column
+BoardSize_Width: 6
+BoardSize_Height: 9
+# Size of chess square(in millimeter)
+ChessSize_Width: 25
+ChessSize_Height: 25
+# The type of input data
+# Only can be one of the follows:
+#   "ImageFolder" 
+#   "Cameraor"
+#   "Video"
+Input_Type: "ImageFolder"
+# The type of camera that get these input data
+# Only can be one of the follows:
+#   "Mono" 
+#   "Stereo"
+Camera_Type: "Mono"
+# The input data,Input1 for Mono Camera and Input1 Input2 for Stero Camera
+# If the Input_Type is "ImageFolder"  --> give the path of the folder
+# If the Input_Type is "Cameraor"     --> give the ID of the camera, like "1"
+# If the Input_Type is "Video"        --> give the path of the input video, like "/tmp/x.avi"
+Input1: "E:/VSProject/CameraCalibration/DataSet/slr/"
+Input2: "E:/VSProject/CameraCalibration/DataSet/slr/"
+# Number of Radial Distortion Cofficients
+# Can be 2,3,4
+# When the distortion is more serious, this number should be more larger
+Radial_Dist_Num: 2
+# Tangential Distortion
+# If true (non-zero) tangential distortion coefficients  are set to zeros and stay zero
+Zero_Tangential_Dist: 0
+# The name of the output log file
+Output_File_Name: "./calibration_results.yml"
+# The max iteration count when refine the corner coordinate to subpisel level
+Iter_Subpixel: 30
+# The EPS when refine the corner coordinate to subpisel level
+EPS_Subpixel: 1.0e-001
+# The max iteration count when do the no-linear optimize to solve the distortion cofficients
+Iter_Calibration: 1000
+# The EPS when when do the no-linear optimize to solve the distortion cofficients
+EPS_Calibration: 1.0e-004
