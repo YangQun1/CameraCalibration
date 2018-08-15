@@ -34,7 +34,7 @@ double calibStereoCam(
 	Size& img_size);
 
 
-#define CALIBRATE	
+// #define CALIBRATE	
 
 int main() 
 {
@@ -120,19 +120,16 @@ int main()
 #endif 
 
 	// 立体校正实验
+	// 立体匹配与深度恢复实验
+	StereoSGBM sgbmMatcher;
+
 	Mat R1, R2, P1, P2, Q;
 	stereoRectify(intrinsic_matrix_left, dist_coeffs_left,
 		intrinsic_matrix_right, dist_coeffs_right, img_size, R, t,
-		R1, R2, P1, P2, Q, CV_CALIB_ZERO_DISPARITY, 1);
+		R1, R2, P1, P2, Q, CV_CALIB_ZERO_DISPARITY, 0);
 
 	Mat map1_left, map2_left;
 	Mat map1_right, map2_right;
-	//Mat newCamMatrix_left = P1(Rect(0, 0, 3, 3));
-	//Mat newCamMatrix_right = P2(Rect(0, 0, 3, 3));
-	//initUndistortRectifyMap(intrinsic_matrix_left, dist_coeffs_left,
-	//	R1, newCamMatrix_left, img_size, CV_32FC1, map1_left, map2_left);
-	//initUndistortRectifyMap(intrinsic_matrix_right, dist_coeffs_right,
-	//	R2, newCamMatrix_right, img_size, CV_32FC1, map1_right, map2_right);
 	initUndistortRectifyMap(intrinsic_matrix_left, dist_coeffs_left,
 		R1, P1, img_size, CV_32FC1, map1_left, map2_left);
 	initUndistortRectifyMap(intrinsic_matrix_right, dist_coeffs_right,
@@ -140,6 +137,8 @@ int main()
 
 	namedWindow("rectify", 0);
 	cvResizeWindow("rectify", 1800, 600);
+	namedWindow("depth", 0);
+	cvResizeWindow("depth", 900, 600);
 	int img_count = img_files_left.size();
 	for (int i = 0; i < img_count; i++){
 		Mat img_left = imread(param_reader.img_path_left + img_files_left[i]);
@@ -149,18 +148,56 @@ int main()
 		remap(img_left, img_rectified_left, map1_left, map2_left, CV_INTER_LINEAR);
 		remap(img_right, img_rectified_right, map1_right, map2_right, CV_INTER_LINEAR);
 
+		// 画出对极线，以备显示
 		Mat img_rectify = Mat::zeros(img_size.height, img_size.width * 2, img_left.type());
 		img_rectified_left.copyTo(img_rectify(Rect(0, 0, img_size.width, img_size.height)));
 		img_rectified_right.copyTo(img_rectify(Rect(img_size.width, 0, img_size.width, img_size.height)));
-
-		// 画出对极线
 		for (int j = 0; j < img_rectify.rows; j += 48)
 			line(img_rectify, Point(0, j), Point(img_rectify.cols, j), Scalar(0, 255, 0), 1, 8);
 
+		// 转为灰度
+		Mat img_rectified_right_grey, img_rectified_left_grey;
+		if (img_rectified_right.channels() == 3){
+			cvtColor(img_rectified_right, img_rectified_right_grey, CV_RGB2GRAY);
+			cvtColor(img_rectified_left, img_rectified_left_grey, CV_RGB2GRAY);
+		}
+		else{
+			img_rectified_right_grey = img_rectified_right;
+			img_rectified_left_grey = img_rectified_left;
+		}
+
+		// 进行双目匹配
+		int cn = img_rectified_right_grey.channels();
+		int SADWindowSize = 21;
+		sgbmMatcher.preFilterCap = 63;
+		sgbmMatcher.SADWindowSize = SADWindowSize > 0 ? SADWindowSize : 3;
+		sgbmMatcher.P1 = 8 * cn*sgbmMatcher.SADWindowSize*sgbmMatcher.SADWindowSize;
+		sgbmMatcher.P2 = 32 * cn*sgbmMatcher.SADWindowSize*sgbmMatcher.SADWindowSize;
+		sgbmMatcher.minDisparity = 0;
+		sgbmMatcher.numberOfDisparities = ((img_rectified_right_grey.cols / 8) + 15) & -16;	//32;;
+		sgbmMatcher.uniquenessRatio = 10;
+		sgbmMatcher.speckleWindowSize = 100;
+		sgbmMatcher.speckleRange = 32;
+		sgbmMatcher.disp12MaxDiff = 1;
+		sgbmMatcher.fullDP = false;
+
+		Mat disparity;
+		sgbmMatcher(img_rectified_left_grey, img_rectified_right_grey, disparity);
+
+		// 恢复深度
+		Mat _3DPoint, depthImage;
+		vector<Mat> channels;
+		reprojectImageTo3D(disparity, _3DPoint, Q);
+		split(_3DPoint, channels);
+		channels[2].convertTo(depthImage, CV_8UC1);
+
+		// 显示
 		imshow("rectify", img_rectify);
+		imshow("depth", depthImage);
 		waitKey(0);
 	}
-	cv::destroyWindow("rectify");
+	cv::destroyAllWindows();
+
 
 
  	return 0;
