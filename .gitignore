@@ -179,6 +179,8 @@ waf3*
 *.exe
 *.dll
 image
+captured*
+calibration_results.yml
 
 #################
 ## SVAF
